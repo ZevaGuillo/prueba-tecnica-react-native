@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "skills": {
+    "animating-react-native-expo": {
+      "source": "tristanmanchester/agent-skills",
+      "sourceType": "github",
+      "computedHash": "6ac26ef9ab1b17d92962a4b382f2e7b4320fd876374e9346c4c47659d0164f01"
+    },
+    "react-native": {
+      "source": "vercel-labs/json-render",
+      "sourceType": "github",
+      "computedHash": "1cfeffbd71f8fc350e7fdb5cd1f76067d64b60f2fef2300fd83181ad90148451"
+    },
+    "react-native-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "f75e8c7bd9ffd77a29b74eece63806ff87f8723c30744c5cb90f8baab388d18e"
+    },
+    "react-native-patterns": {
+      "source": "dralgorhythm/claude-agentic-framework",
+      "sourceType": "github",
+      "computedHash": "2c9113f5a9f5221db67abbd4d86e98706dee00f6739cfffb4c80eac58bc8d6a4"
+    },
+    "react-native-state": {
+      "source": "pluginagentmarketplace/custom-plugin-react-native",
+      "sourceType": "github",
+      "computedHash": "6e0e2f4757b1f0b66fd2463e845e05355cdf85856ee7ed289849d024a8c0e1d1"
+    },
+    "react-patterns": {
+      "source": "dralgorhythm/claude-agentic-framework",
+      "sourceType": "github",
+      "computedHash": "60c1319cf4435db6cc9db9692e89f825d1994e46d2e0584cf6dd231d76dd6642"
+    },
+    "reanimated-skia-performance": {
+      "source": "andreev-danila/skills",
+      "sourceType": "github",
+      "computedHash": "14ab8be93ebb822d4f9c6ebdce0204f0b5e3837b15b43cdb061a06973751364e"
+    },
+    "ui-mobile": {
+      "source": "alinaqi/claude-bootstrap",
+      "sourceType": "github",
+      "computedHash": "14062e337cf61370d269b46ff1a9144535956ab1776d4ab8c82a7b980bcf92ce"
+    }
+  }
+}
