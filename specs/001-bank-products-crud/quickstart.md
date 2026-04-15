@@ -6,16 +6,10 @@
 - npm o pnpm
 - Para móvil: Android Studio / Xcode o dispositivo con Expo Go (según flujo)
 
-## 1. Backend (API de productos)
+## 1. API de productos
 
-```bash
-cd backend/repo-interview-main
-npm install
-npm run start
-```
-
-Por defecto el servidor escucha en el puerto **3002** (ver `src/main.ts`). Las rutas de productos
-están bajo `/bp/products`.
+Este repositorio es solo el cliente. Necesitas un backend que exponga las rutas bajo `/bp/products`
+(por ejemplo en el puerto **3002**). Ajusta `EXPO_PUBLIC_API_BASE` a la URL real.
 
 ## 2. Cliente Expo (raíz del repo)
 
@@ -41,13 +35,14 @@ npm run start
 
 Luego abrir en iOS / Android / web según indicaciones de Expo.
 
-## 3. Pruebas (cuando Jest esté configurado)
+## 3. Pruebas
 
 ```bash
 npm test
+npm run test:coverage
 ```
 
-Cobertura mínima objetivo: ver constitución (70% global y prioridades por capa).
+Cobertura: ver `jest.config.js` y constitución (≈70% global en sentencias/líneas; `src/presentation/screens/**/*Screen.tsx` excluidas del informe como orquestación).
 
 ## 4. Documentación de la feature
 

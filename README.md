@@ -1,50 +1,137 @@
-# Welcome to your Expo app 👋
+# prueba-frontend-react-native
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Cliente móvil (Expo / React Native) para gestionar un catálogo de **productos financieros**: listado con búsqueda, alta, detalle, edición y baja. La API se configura por variable de entorno.
 
-## Get started
+## Requisitos
 
-1. Install dependencies
+- **Node.js** 20 o superior (recomendado LTS)
+- **npm** (el proyecto usa `package-lock.json`)
 
-   ```bash
-   npm install
-   ```
+## Stack principal
 
-2. Start the app
+| Tecnología | Versión (orientativa) |
+|------------|------------------------|
+| TypeScript | ~5.9 (modo estricto) |
+| Expo | ~54 |
+| React | 19 |
+| React Native | 0.81 |
+| Expo Router | ~6 (navegación basada en archivos) |
+| React Navigation | 7 (tabs/stack vía Expo Router) |
 
-   ```bash
-   npx expo start
-   ```
+## Configuración
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Crea un archivo `.env` en la raíz del proyecto con la URL base del backend:
 
 ```bash
-npm run reset-project
+EXPO_PUBLIC_API_BASE=https://tu-api.example.com
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Expo inyecta variables con prefijo `EXPO_PUBLIC_` en el bundle. Reinicia el servidor de desarrollo tras cambiar `.env`.
 
-## Learn more
+## Scripts
 
-To learn more about developing your project with Expo, look at the following resources:
+| Comando | Descripción |
+|---------|-------------|
+| `npm install` | Instala dependencias |
+| `npm start` / `npx expo start` | Arranca Metro y la UI de Expo |
+| `npm run android` | Abre en Android |
+| `npm run ios` | Abre en iOS |
+| `npm run web` | Abre en navegador |
+| `npm run lint` | ESLint (config Expo) |
+| `npm test` | Jest (tests en `src/__tests__/`) |
+| `npm run test:coverage` | Jest con informe de cobertura |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Dependencias
 
-## Join the community
+### Producción (runtime)
 
-Join our community of developers creating universal apps.
+- **expo**, **expo-router** — aplicación y rutas
+- **react**, **react-native** — UI
+- **@react-navigation/native** y paquetes asociados — navegación (stack, elementos)
+- **react-native-screens**, **react-native-safe-area-context** — pantallas y áreas seguras
+- **react-native-gesture-handler**, **react-native-reanimated** — gestos y animaciones
+- **react-native-web** — soporte web
+- **@expo/vector-icons** — iconos (p. ej. Ionicons)
+- **expo-image**, **expo-status-bar**, **expo-system-ui**, **expo-linking**, **expo-constants**, **expo-font**, **expo-splash-screen**, **expo-web-browser**, **expo-symbols** — utilidades Expo
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Desarrollo
+
+- **typescript** — tipado
+- **jest**, **jest-expo**, **@testing-library/react-native**, **react-test-renderer** — tests
+- **eslint**, **eslint-config-expo** — lint
+- **babel-plugin-module-resolver** — alias de rutas (`@/…`)
+
+La lista completa y versiones exactas están en `package.json`.
+
+## Estructura del proyecto
+
+```text
+app/                          # Expo Router: rutas y layouts
+  _layout.tsx                 # Raíz: tema, SafeAreaProvider, barra de marca, Stack
+  index.tsx                   # Inicio → ProductListScreen
+  product/
+    _layout.tsx               # Stack de producto (cabecera nativa, estilos)
+    [id].tsx                  # Detalle
+    new.tsx                   # Alta
+    edit/[id].tsx             # Edición
+
+src/
+  core/                       # Dominio
+    entities/                 # Entidades (p. ej. FinancialProduct)
+    repositories/             # Contratos (IProductRepository)
+    usecases/                 # Casos de uso (GetProducts, CreateProduct, …)
+
+  data/                       # Infraestructura
+    datasources/              # ApiClient, llamadas HTTP
+    mappers/                  # DTO ↔ entidad
+    repositories/             # ProductRepositoryImpl
+    errors/                   # ApiError
+
+  presentation/
+    components/               # UI compartida (p. ej. AppBrandNavbar)
+    screens/                  # Pantallas por feature (ProductList, ProductDetail, ProductForm)
+    di/                       # Composición de casos de uso (productsComposition)
+    navigation/               # Helpers de rutas tipadas (hrefProductDetail, …)
+
+  shared/
+    theme/                    # Colores, tipografía, espaciados
+    hooks/                    # useDebounce, use-color-scheme, …
+    utils/                    # Validadores, mapApiFieldErrors
+    constants/
+
+  __tests__/                  # Tests Jest
+```
+
+Alias TypeScript (ver `tsconfig.json`):
+
+- `@/core/*`, `@/data/*`, `@/presentation/*`, `@/shared/*`
+- `@/*` → raíz del repo
+
+## Pantallas y rutas
+
+La barra superior global **BANCO** (`AppBrandNavbar`) se define en `app/_layout.tsx` y envuelve todo el `Stack`. El grupo `product` añade cabecera nativa (sin título en formularios según configuración actual).
+
+| Ruta (Expo Router) | Archivo de ruta | Pantalla / componente | Función |
+|--------------------|-----------------|-------------------------|---------|
+| `/` | `app/index.tsx` | `ProductListScreen` | Catálogo: búsqueda, listado, botón agregar |
+| `/product/[id]` | `app/product/[id].tsx` | `ProductDetailScreen` | Ficha del producto, editar, eliminar (modal) |
+| `/product/new` | `app/product/new.tsx` | `ProductFormScreen` (modo create) | Alta de producto |
+| `/product/edit/[id]` | `app/product/edit/[id].tsx` | `ProductFormScreen` (modo edit) | Edición |
+
+Navegación tipada desde código: `hrefProductDetail`, `hrefProductNew`, `hrefProductEdit` en `src/presentation/navigation/types.ts`.
+
+### Componentes destacados por pantalla
+
+- **Listado:** `SearchBar`, `ProductItem`, `useProductListViewModel`
+- **Detalle:** `DetailField`, `ProductLogoDisplay`, `DeleteConfirmModal`, `useProductDetailViewModel`
+- **Formulario:** campos validados con `src/shared/utils/validators.ts`, `useProductFormViewModel`
+
+## Arquitectura de datos
+
+- Los casos de uso viven en `src/core/usecases/` y se cablean en `src/presentation/di/productsComposition.ts`.
+- El repositorio concreto usa `ApiClient` y `ProductRemoteDataSource` para hablar con la API REST configurada en `EXPO_PUBLIC_API_BASE`.
+
+## Recursos
+
+- [Documentación Expo](https://docs.expo.dev/)
+- [Expo Router](https://docs.expo.dev/router/introduction/)
