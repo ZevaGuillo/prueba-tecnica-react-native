@@ -91,10 +91,10 @@ describe('ProductRepositoryImpl', () => {
     expect(requestJson).toHaveBeenCalledWith('/bp/products/verification/id1', { method: 'GET' });
   });
 
-  it('verifyId rechaza cuerpo no booleano', async () => {
+  it('verifyId acepta { exists: boolean }', async () => {
     const requestJson = jest.fn().mockResolvedValue({ exists: true });
     const repo = new ProductRepositoryImpl(createClient({ requestJson }));
 
-    await expect(repo.verifyId('id1')).rejects.toThrow(/inválida/);
+    await expect(repo.verifyId('id1')).resolves.toBe(true);
   });
 });

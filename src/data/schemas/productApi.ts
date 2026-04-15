@@ -33,4 +33,9 @@ export function parseProductFromGetById(body: unknown): ProductApiDto | null {
   return null;
 }
 
-export const verificationResponseSchema = z.boolean();
+/** GET verification: cuerpo plano `true`/`false` o envoltorios frecuentes en APIs Nest. */
+export const verificationResponseSchema = z.union([
+  z.boolean(),
+  z.object({ exists: z.boolean() }).transform((o) => o.exists),
+  z.object({ data: z.boolean() }).transform((o) => o.data),
+]);
