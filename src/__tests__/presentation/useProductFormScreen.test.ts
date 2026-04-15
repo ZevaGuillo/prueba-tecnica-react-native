@@ -5,9 +5,9 @@ import {
   updateProduct,
   verifyProductId,
 } from '@/presentation/di/productsComposition';
-import { useProductFormScreen } from '@/presentation/screens/ProductForm/useProductFormScreen';
+import { useProductFormScreen } from '@/presentation/screens/ProductForm/hooks/useProductFormScreen';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createQueryClientWrapper } from '../../test-utils/queryClientWrapper';
-import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { sampleProduct } from '../fixtures/financialProduct';
 
 function tomorrowIso(): string {
