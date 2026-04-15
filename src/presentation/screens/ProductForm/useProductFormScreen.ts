@@ -1,11 +1,12 @@
 import type { FinancialProduct } from '@/core/entities/FinancialProduct';
-import { ApiError } from '@/data/errors/ApiError';
+import { ApiError } from '@/data/ApiError';
+import { getUserFacingErrorMessage } from '@/shared/utils/userFacingMessage';
 import {
-  createProduct,
-  getProductById,
-  updateProduct,
-  verifyProductId,
-} from '@/presentation/di/productsComposition';
+  useCreateProductMutation,
+  useUpdateProductMutation,
+} from '@/presentation/hooks/products/useProductMutations';
+import { useProductQuery } from '@/presentation/hooks/products/useProductQuery';
+import { useVerifyProductIdQuery } from '@/presentation/hooks/products/useVerifyProductIdQuery';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { mapBadRequestBodyToFieldErrors } from '@/shared/utils/mapApiFieldErrors';
 import {
@@ -45,68 +46,78 @@ function productToFormFields(p: FinancialProduct): FormFields {
   };
 }
 
-const NOT_FOUND_EDIT = 'No se encontró el producto. Puede que haya sido eliminado o el enlace sea incorrecto.';
+const NOT_FOUND_EDIT =
+  'No se encontró el producto. Puede que haya sido eliminado o el enlace sea incorrecto.';
 
-export function useProductFormViewModel(mode: ProductFormMode, editProductId?: string) {
+/**
+ * Estado del formulario + mutaciones; las lecturas remotas van por TanStack Query en este hook.
+ */
+export function useProductFormScreen(mode: ProductFormMode, editProductId?: string) {
   const [fields, setFields] = useState<FormFields>(emptyFields);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [submitting, setSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
-  const [idTaken, setIdTaken] = useState(false);
-  const [idCheckPending, setIdCheckPending] = useState(false);
-  const [editLoadStatus, setEditLoadStatus] = useState<EditLoadStatus>(
-    mode === 'edit' ? 'loading' : 'ready',
-  );
-  const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const initialSnapshot = useRef<FormFields | null>(null);
+  const editHydrated = useRef(false);
 
   const debouncedId = useDebounce(fields.id, 400);
+  const syncIdErr = validateProductId(debouncedId);
+
+  const editQuery = useProductQuery(mode === 'edit' ? editProductId : undefined);
+  const verifyQuery = useVerifyProductIdQuery(
+    debouncedId,
+    mode === 'create' && !syncIdErr && debouncedId.trim().length > 0,
+  );
+
+  const createMut = useCreateProductMutation();
+  const updateMut = useUpdateProductMutation();
 
   const dateRevisionComputed = useMemo(
     () => computeRevisionDateFromRelease(fields.date_release) ?? '',
     [fields.date_release],
   );
 
-  const loadEditProduct = useCallback(async () => {
-    if (mode !== 'edit' || !editProductId?.trim()) {
-      setEditLoadStatus('error');
-      setEditLoadError('Falta el identificador del producto.');
-      return;
-    }
-    setEditLoadStatus('loading');
-    setEditLoadError(null);
-    try {
-      const p = await getProductById.execute(editProductId.trim());
-      if (!p) {
-        setEditLoadStatus('notFound');
-        return;
-      }
-      const f = productToFormFields(p);
-      setFields(f);
-      initialSnapshot.current = { ...f };
-      setFieldErrors({});
-      setGeneralError(null);
-      setEditLoadStatus('ready');
-    } catch (e) {
-      setEditLoadStatus('error');
-      setEditLoadError(e instanceof Error ? e.message : 'No se pudo cargar el producto.');
-    }
-  }, [mode, editProductId]);
+  const idTaken = verifyQuery.data === true;
+  const idCheckPending = verifyQuery.isFetching;
 
   useEffect(() => {
-    if (mode === 'edit') {
-      void loadEditProduct();
+    editHydrated.current = false;
+  }, [editProductId, mode]);
+
+  useEffect(() => {
+    if (mode !== 'edit' || !editQuery.isSuccess || !editQuery.data) return;
+    if (editHydrated.current) return;
+    const f = productToFormFields(editQuery.data);
+    setFields(f);
+    initialSnapshot.current = { ...f };
+    setFieldErrors({});
+    setGeneralError(null);
+    editHydrated.current = true;
+  }, [mode, editQuery.isSuccess, editQuery.data]);
+
+  let editLoadStatus: EditLoadStatus = mode === 'edit' ? 'loading' : 'ready';
+  let editLoadError: string | null = null;
+
+  if (mode === 'edit') {
+    if (!editProductId?.trim()) {
+      editLoadStatus = 'error';
+      editLoadError = 'Falta el identificador del producto.';
+    } else if (editQuery.isLoading) {
+      editLoadStatus = 'loading';
+    } else if (editQuery.isError) {
+      editLoadStatus = 'error';
+      editLoadError = getUserFacingErrorMessage(editQuery.error) || 'No se pudo cargar el producto.';
+    } else if (editQuery.isSuccess && editQuery.data === null) {
+      editLoadStatus = 'notFound';
+    } else if (editQuery.isSuccess && editQuery.data) {
+      editLoadStatus = 'ready';
     }
-  }, [mode, loadEditProduct]);
+  }
 
   useEffect(() => {
     if (mode !== 'create') return;
 
-    const syncErr = validateProductId(debouncedId);
-    if (syncErr) {
-      setFieldErrors((prev) => ({ ...prev, id: syncErr }));
-      setIdTaken(false);
-      setIdCheckPending(false);
+    if (syncIdErr) {
+      setFieldErrors((prev) => ({ ...prev, id: syncIdErr }));
       return;
     }
     if (!debouncedId.trim()) {
@@ -115,34 +126,14 @@ export function useProductFormViewModel(mode: ProductFormMode, editProductId?: s
         delete n.id;
         return n;
       });
-      setIdTaken(false);
-      setIdCheckPending(false);
       return;
     }
 
-    let cancelled = false;
-    setIdCheckPending(true);
-    setIdTaken(false);
-    verifyProductId
-      .execute(debouncedId.trim())
-      .then((exists) => {
-        if (cancelled) return;
-        setIdCheckPending(false);
-        setIdTaken(exists);
-        setFieldErrors((prev) => ({
-          ...prev,
-          id: exists ? 'Este identificador ya está en uso.' : undefined,
-        }));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setIdCheckPending(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedId, mode]);
+    setFieldErrors((prev) => ({
+      ...prev,
+      id: idTaken ? 'Este identificador ya está en uso.' : undefined,
+    }));
+  }, [debouncedId, mode, syncIdErr, idTaken]);
 
   const setField = useCallback(
     (key: keyof FormFields, value: string) => {
@@ -204,10 +195,9 @@ export function useProductFormViewModel(mode: ProductFormMode, editProductId?: s
     }
     setFieldErrors({});
     setGeneralError(null);
-    if (mode === 'create') {
-      setIdTaken(false);
-    }
   }, [mode]);
+
+  const submitting = createMut.isPending || updateMut.isPending;
 
   const submit = useCallback(async (): Promise<boolean> => {
     setGeneralError(null);
@@ -234,17 +224,19 @@ export function useProductFormViewModel(mode: ProductFormMode, editProductId?: s
       date_revision: dateRevision,
     };
 
-    setSubmitting(true);
     try {
       if (mode === 'create') {
-        await createProduct.execute(product);
+        await createMut.mutateAsync(product);
       } else {
-        await updateProduct.execute(product.id, {
-          name: product.name,
-          description: product.description,
-          logo: product.logo,
-          date_release: product.date_release,
-          date_revision: product.date_revision,
+        await updateMut.mutateAsync({
+          id: product.id,
+          patch: {
+            name: product.name,
+            description: product.description,
+            logo: product.logo,
+            date_release: product.date_release,
+            date_revision: product.date_revision,
+          },
         });
       }
       return true;
@@ -253,20 +245,21 @@ export function useProductFormViewModel(mode: ProductFormMode, editProductId?: s
         const mapped = mapBadRequestBodyToFieldErrors(err.body);
         setFieldErrors((prev) => ({ ...prev, ...mapped }));
         if (Object.keys(mapped).length === 0) {
-          setGeneralError(err.message);
+          setGeneralError(getUserFacingErrorMessage(err));
         }
       } else if (err instanceof ApiError && err.status === 404) {
         setGeneralError(NOT_FOUND_EDIT);
       } else {
-        setGeneralError(
-          err instanceof Error ? err.message : 'No se pudo guardar el producto.',
-        );
+        setGeneralError(getUserFacingErrorMessage(err) || 'No se pudo guardar el producto.');
       }
       return false;
-    } finally {
-      setSubmitting(false);
     }
-  }, [fields, idCheckPending, validateAll, mode]);
+  }, [fields, idCheckPending, validateAll, mode, createMut, updateMut]);
+
+  const reloadEdit = useCallback(() => {
+    editHydrated.current = false;
+    void editQuery.refetch();
+  }, [editQuery]);
 
   return {
     mode,
@@ -281,7 +274,7 @@ export function useProductFormViewModel(mode: ProductFormMode, editProductId?: s
     dateRevisionComputed,
     editLoadStatus,
     editLoadError,
-    reloadEdit: loadEditProduct,
+    reloadEdit,
     idEditable: mode === 'create',
   };
 }

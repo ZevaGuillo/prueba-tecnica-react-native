@@ -1,9 +1,12 @@
+import { getUserFacingErrorMessage } from '@/shared/utils/userFacingMessage';
+import { useDeleteProductMutation } from '@/presentation/hooks/products/useProductMutations';
+import { useProductQuery } from '@/presentation/hooks/products/useProductQuery';
 import { hrefProductEdit } from '@/presentation/navigation/types';
 import { DeleteConfirmModal } from '@/presentation/screens/ProductDetail/components/DeleteConfirmModal';
 import { DetailField } from '@/presentation/screens/ProductDetail/components/DetailField';
-import { useProductDetailViewModel } from '@/presentation/screens/ProductDetail/useProductDetailViewModel';
 import { colors, radii, spacing, typography } from '@/shared/theme';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductLogoDisplay } from './components/ProductLogoDisplay';
@@ -24,11 +27,59 @@ function formatEsDate(iso: string): string {
 }
 
 export function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: idParam } = useLocalSearchParams<{ id: string }>();
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const router = useRouter();
-  const vm = useProductDetailViewModel(id);
+  const productQuery = useProductQuery(id);
+  const { refetch } = productQuery;
+  const deleteMutation = useDeleteProductMutation();
 
-  if (vm.isLoading) {
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+
+  const openDeleteModal = useCallback(() => {
+    deleteMutation.reset();
+    setDeleteModalVisible(true);
+  }, [deleteMutation]);
+
+  const closeDeleteModal = useCallback(() => {
+    if (deleteMutation.isPending) return;
+    deleteMutation.reset();
+    setDeleteModalVisible(false);
+  }, [deleteMutation]);
+
+  const confirmDelete = useCallback(async (): Promise<boolean> => {
+    const pid = id?.trim();
+    if (!pid) {
+      return false;
+    }
+    try {
+      await deleteMutation.mutateAsync(pid);
+      setDeleteModalVisible(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [deleteMutation, id]);
+
+  const rawId = id?.trim() ?? '';
+
+  if (!rawId) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+        <View style={styles.centered} accessibilityRole="alert">
+          <Text style={styles.title}>Identificador de producto no válido.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (productQuery.isLoading) {
     return (
       <View style={styles.centered} accessibilityLabel="Cargando detalle del producto">
         <ActivityIndicator size="large" color={colors.border} />
@@ -37,32 +88,16 @@ export function ProductDetailScreen() {
     );
   }
 
-  if (vm.isNotFound) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
-        <View style={styles.centered} accessibilityRole="alert">
-          <Text style={styles.title}>Producto no encontrado</Text>
-          <Text style={styles.muted}>No hay un producto con ese identificador.</Text>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.btnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Volver al catálogo">
-            <Text style={styles.secondaryLabel}>Volver</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (vm.isError) {
+  if (productQuery.isError) {
+    const msg =
+      getUserFacingErrorMessage(productQuery.error) || 'No se pudo cargar el producto.';
     return (
       <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
         <View style={styles.centered} accessibilityRole="alert">
           <Text style={styles.errorTitle}>No se pudo cargar el producto</Text>
-          {vm.errorMessage ? <Text style={styles.muted}>{vm.errorMessage}</Text> : null}
+          <Text style={styles.muted}>{msg}</Text>
           <Pressable
-            onPress={vm.refresh}
+            onPress={() => void refetch()}
             style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
             accessibilityRole="button"
             accessibilityLabel="Reintentar cargar el producto">
@@ -80,45 +115,64 @@ export function ProductDetailScreen() {
     );
   }
 
-  if (!vm.product) {
-    return null;
+  if (productQuery.isSuccess && productQuery.data === null) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+        <View style={styles.centered} accessibilityRole="alert">
+          <Text style={styles.title}>Producto no encontrado</Text>
+          <Text style={styles.muted}>No hay un producto con ese identificador.</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.btnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Volver al catálogo">
+            <Text style={styles.secondaryLabel}>Volver</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   }
 
-  const p = vm.product;
+  const p = productQuery.data;
+  if (!p) {
+    return null;
+  }
 
   const onEdit = () => {
     router.push(hrefProductEdit(p.id));
   };
 
   const onConfirmDelete = async () => {
-    const ok = await vm.confirmDelete();
+    const ok = await confirmDelete();
     if (ok) router.back();
   };
+
+  const deleteErr = deleteMutation.isError
+    ? getUserFacingErrorMessage(deleteMutation.error) || 'No se pudo eliminar el producto.'
+    : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <DeleteConfirmModal
-        visible={vm.deleteModalVisible}
+        visible={deleteModalVisible}
         productName={p.name}
         productId={p.id}
-        onCancel={vm.closeDeleteModal}
+        onCancel={closeDeleteModal}
         onConfirm={onConfirmDelete}
-        submitting={vm.deleteSubmitting}
-        errorMessage={vm.deleteError}
+        submitting={deleteMutation.isPending}
+        errorMessage={deleteErr}
       />
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         accessibilityLabel="Detalle del producto">
-        <View
-          accessibilityRole="text"
-          accessibilityLabel={`ID: ${p.id}`}>
+        <View accessibilityRole="text" accessibilityLabel={`ID: ${p.id}`}>
           <Text style={styles.idLabel}>ID: {p.id}</Text>
           <Text style={styles.idsub}>Información extra</Text>
         </View>
         <DetailField label="Nombre" value={p.name} />
         <DetailField label="Descripción" value={p.description} />
-        <DetailField label="Logo (referencia)" value={""} />
+        <DetailField label="Logo (referencia)" value={''} />
         <ProductLogoDisplay logo={p.logo} productName={p.name} />
 
         <DetailField label="Fecha de liberación" value={formatEsDate(p.date_release)} />
@@ -133,7 +187,7 @@ export function ProductDetailScreen() {
             <Text style={styles.primaryLabel}>Editar</Text>
           </Pressable>
           <Pressable
-            onPress={vm.openDeleteModal}
+            onPress={openDeleteModal}
             style={({ pressed }) => [styles.dangerBtn, pressed && styles.btnPressed]}
             accessibilityRole="button"
             accessibilityLabel="Eliminar producto">

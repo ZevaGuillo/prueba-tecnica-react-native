@@ -1,37 +1,23 @@
 import type { FinancialProduct } from '@/core/entities/FinancialProduct';
+import type { ProductApiDto } from '@/data/schemas/productApi';
 
-/** Forma JSON del API (snake_case, fechas en string). */
-export type ProductApiDto = {
-  id: string;
-  name: string;
-  description: string;
-  logo: string;
-  date_release: string;
-  date_revision: string;
-};
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
-
-function asString(v: unknown): string {
-  if (typeof v === 'string') return v;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
-  return String(v ?? '');
+function normalizeDateField(v: string): string {
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+    return v.slice(0, 10);
+  }
+  return v;
 }
 
 export const ProductMapper = {
-  toDomain(raw: unknown): FinancialProduct {
-    if (!isRecord(raw)) {
-      throw new Error('Respuesta de producto inválida.');
-    }
+  /** Convierte DTO ya validado al modelo de dominio. */
+  toDomain(dto: ProductApiDto): FinancialProduct {
     return {
-      id: asString(raw.id),
-      name: asString(raw.name),
-      description: asString(raw.description),
-      logo: asString(raw.logo),
-      date_release: normalizeDateField(raw.date_release),
-      date_revision: normalizeDateField(raw.date_revision),
+      id: dto.id,
+      name: dto.name,
+      description: dto.description,
+      logo: dto.logo,
+      date_release: normalizeDateField(dto.date_release),
+      date_revision: normalizeDateField(dto.date_revision),
     };
   },
 
@@ -56,11 +42,3 @@ export const ProductMapper = {
     return out;
   },
 };
-
-function normalizeDateField(v: unknown): string {
-  const s = asString(v);
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    return s.slice(0, 10);
-  }
-  return s;
-}

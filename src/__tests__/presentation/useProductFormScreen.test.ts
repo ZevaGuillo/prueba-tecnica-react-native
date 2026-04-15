@@ -1,11 +1,12 @@
-import { useProductFormViewModel } from '@/presentation/screens/ProductForm/useProductFormViewModel';
+import { ApiError } from '@/data/ApiError';
 import {
   createProduct,
   getProductById,
   updateProduct,
   verifyProductId,
 } from '@/presentation/di/productsComposition';
-import { ApiError } from '@/data/errors/ApiError';
+import { useProductFormScreen } from '@/presentation/screens/ProductForm/useProductFormScreen';
+import { createQueryClientWrapper } from '../../test-utils/queryClientWrapper';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { sampleProduct } from '../fixtures/financialProduct';
 
@@ -18,7 +19,7 @@ function tomorrowIso(): string {
   return `${y}-${m}-${day}`;
 }
 
-describe('useProductFormViewModel', () => {
+describe('useProductFormScreen', () => {
   let verifySpy: jest.SpyInstance;
   let createSpy: jest.SpyInstance;
   let getSpy: jest.SpyInstance;
@@ -42,7 +43,8 @@ describe('useProductFormViewModel', () => {
 
   it('create: validación falla con campos vacíos', async () => {
     jest.useFakeTimers();
-    const { result } = renderHook(() => useProductFormViewModel('create'));
+    const wrapper = createQueryClientWrapper();
+    const { result } = renderHook(() => useProductFormScreen('create'), { wrapper });
 
     await act(async () => {
       const ok = await result.current.submit();
@@ -55,7 +57,8 @@ describe('useProductFormViewModel', () => {
     const dateRel = tomorrowIso();
     createSpy.mockResolvedValue(sampleProduct());
 
-    const { result } = renderHook(() => useProductFormViewModel('create'));
+    const wrapper = createQueryClientWrapper();
+    const { result } = renderHook(() => useProductFormScreen('create'), { wrapper });
 
     await act(() => {
       result.current.setField('id', 'newprod');
@@ -84,9 +87,15 @@ describe('useProductFormViewModel', () => {
   it('create: ApiError 400 mapea errores de campo', async () => {
     jest.useFakeTimers();
     const dateRel = tomorrowIso();
-    createSpy.mockRejectedValue(new ApiError('bad', 400, { errors: [{ property: 'name', constraints: { x: 'must be longer' } }] }));
+    createSpy.mockRejectedValue(
+      new ApiError({
+        status: 400,
+        body: { errors: [{ property: 'name', constraints: { x: 'must be longer' } }] },
+      }),
+    );
 
-    const { result } = renderHook(() => useProductFormViewModel('create'));
+    const wrapper = createQueryClientWrapper();
+    const { result } = renderHook(() => useProductFormScreen('create'), { wrapper });
 
     await act(() => {
       result.current.setField('id', 'newprod2');
@@ -114,7 +123,8 @@ describe('useProductFormViewModel', () => {
     getSpy.mockResolvedValue(p);
     updateSpy.mockResolvedValue(p);
 
-    const { result } = renderHook(() => useProductFormViewModel('edit', 'ed1'));
+    const wrapper = createQueryClientWrapper();
+    const { result } = renderHook(() => useProductFormScreen('edit', 'ed1'), { wrapper });
 
     await waitFor(() => expect(result.current.editLoadStatus).toBe('ready'));
 

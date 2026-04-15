@@ -1,5 +1,4 @@
-import { ApiClient } from '@/data/datasources/ApiClient';
-import { ProductRemoteDataSource } from '@/data/datasources/ProductRemoteDataSource';
+import { ApiClient } from '@/data/ApiClient';
 import { ProductRepositoryImpl } from '@/data/repositories/ProductRepositoryImpl';
 import { CreateProduct } from '@/core/usecases/CreateProduct';
 import { DeleteProduct } from '@/core/usecases/DeleteProduct';
@@ -8,9 +7,8 @@ import { GetProducts } from '@/core/usecases/GetProducts';
 import { UpdateProduct } from '@/core/usecases/UpdateProduct';
 import { VerifyProductId } from '@/core/usecases/VerifyProductId';
 
-const apiClient = ApiClient.getInstance();
-const productRemoteDataSource = new ProductRemoteDataSource(apiClient);
-const productRepository = new ProductRepositoryImpl(productRemoteDataSource);
+const apiClient = new ApiClient();
+const productRepository = new ProductRepositoryImpl(apiClient);
 
 export const getProducts = new GetProducts(productRepository);
 export const getProductById = new GetProductById(productRepository);

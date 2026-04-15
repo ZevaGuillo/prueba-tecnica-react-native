@@ -1,8 +1,9 @@
 import type { FinancialProduct } from '@/core/entities/FinancialProduct';
+import type { ProductApiDto } from '@/data/schemas/productApi';
 import { ProductMapper } from '@/data/mappers/ProductMapper';
 
 describe('ProductMapper', () => {
-  const valid = {
+  const valid: ProductApiDto = {
     id: 'p1',
     name: 'Nombre largo ok',
     description: '1234567890',
@@ -16,19 +17,6 @@ describe('ProductMapper', () => {
     expect(d.date_release).toBe('2030-01-01');
     expect(d.date_revision).toBe('2031-01-01');
     expect(d.id).toBe('p1');
-  });
-
-  it('toDomain acepta Date en campos', () => {
-    const raw = {
-      ...valid,
-      id: new Date('2020-01-01'),
-    };
-    const d = ProductMapper.toDomain(raw);
-    expect(typeof d.id).toBe('string');
-  });
-
-  it('toDomain lanza si no es objeto', () => {
-    expect(() => ProductMapper.toDomain(null)).toThrow(/inválida/);
   });
 
   it('toCreateBody serializa todos los campos', () => {

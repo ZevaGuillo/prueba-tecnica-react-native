@@ -3,7 +3,7 @@ import {
   localDateToIsoDateString,
   startOfTodayLocal,
 } from '@/presentation/screens/ProductForm/dateIsoUtils';
-import { useProductFormViewModel } from '@/presentation/screens/ProductForm/useProductFormViewModel';
+import { useProductFormScreen } from '@/presentation/screens/ProductForm/useProductFormScreen';
 import * as Theme from '@/shared/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
@@ -51,7 +51,7 @@ function ErrorText({ message }: { message?: string }) {
 export function ProductFormScreen({ mode, productId }: ProductFormScreenProps) {
   const router = useRouter();
   const navigation = useNavigation();
-  const vm = useProductFormViewModel(mode, productId);
+  const vm = useProductFormScreen(mode, productId);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerBackVisible: false });

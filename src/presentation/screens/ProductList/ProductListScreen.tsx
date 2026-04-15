@@ -1,11 +1,12 @@
 import type { FinancialProduct } from '@/core/entities/FinancialProduct';
+import { getUserFacingErrorMessage } from '@/shared/utils/userFacingMessage';
+import { useProductsQuery } from '@/presentation/hooks/products/useProductsQuery';
 import { hrefProductDetail, hrefProductNew } from '@/presentation/navigation/types';
 import { ProductItem } from '@/presentation/screens/ProductList/components/ProductItem';
 import { SearchBar } from '@/presentation/screens/ProductList/components/SearchBar';
-import { useProductListViewModel } from '@/presentation/screens/ProductList/useProductListViewModel';
 import { colors, radii, spacing, typography } from '@/shared/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -88,16 +89,35 @@ function ListEmptyState({
 }
 
 export function ProductListScreen() {
-  const vm = useProductListViewModel();
-  const { load } = vm;
+  const [query, setQuery] = useState('');
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const productsQuery = useProductsQuery();
+  const { refetch } = productsQuery;
+
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void refetch();
+    }, [refetch]),
   );
+
+  const errorMessage = productsQuery.isError
+    ? getUserFacingErrorMessage(productsQuery.error) || 'No se pudo cargar el catálogo.'
+    : null;
+
+  const filteredProducts = useMemo(() => {
+    const all = productsQuery.data ?? [];
+    const q = query.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(
+      (p) => p.id.toLowerCase().includes(q) || p.name.toLowerCase().includes(q),
+    );
+  }, [productsQuery.data, query]);
+
+  const isLoading = productsQuery.isLoading;
+  const isError = productsQuery.isError;
+  const isReady = productsQuery.isSuccess;
 
   const renderItem: ListRenderItem<FinancialProduct> = useCallback(
     ({ item }) => (
@@ -114,41 +134,36 @@ export function ProductListScreen() {
   const listEmpty = useCallback(
     () => (
       <ListEmptyState
-        isLoading={vm.isLoading}
-        isError={vm.isError}
-        errorMessage={vm.errorMessage}
-        allCount={vm.allProducts.length}
-        query={vm.query}
-        onRetry={vm.load}
+        isLoading={isLoading}
+        isError={isError}
+        errorMessage={errorMessage}
+        allCount={productsQuery.data?.length ?? 0}
+        query={query}
+        onRetry={() => void refetch()}
       />
     ),
-    [
-      vm.allProducts.length,
-      vm.errorMessage,
-      vm.isError,
-      vm.isLoading,
-      vm.load,
-      vm.query,
-    ],
+    [productsQuery.data?.length, errorMessage, isError, isLoading, query, refetch],
   );
+
+  const visibleCount = filteredProducts.length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       <View style={styles.body}>
         <View style={styles.header}>
-          <SearchBar value={vm.query} onChangeText={vm.setQuery} />
+          <SearchBar value={query} onChangeText={setQuery} />
           <Text
             style={styles.counter}
             accessibilityRole="text"
-            accessibilityLabel={`${vm.visibleCount} productos mostrados`}
+            accessibilityLabel={`${visibleCount} productos mostrados`}
             accessibilityLiveRegion="polite">
-            {vm.visibleCount} {vm.visibleCount === 1 ? 'producto' : 'productos'}
+            {visibleCount} {visibleCount === 1 ? 'producto' : 'productos'}
           </Text>
         </View>
 
         <FlatList
           style={styles.list}
-          data={vm.isReady ? vm.filteredProducts : []}
+          data={isReady ? filteredProducts : []}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           ListEmptyComponent={listEmpty}
