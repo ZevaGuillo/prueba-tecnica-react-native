@@ -1,8 +1,13 @@
+import {
+  isoDateStringToLocalDate,
+  localDateToIsoDateString,
+  startOfTodayLocal,
+} from '@/presentation/screens/ProductForm/dateIsoUtils';
 import { useProductFormViewModel } from '@/presentation/screens/ProductForm/useProductFormViewModel';
 import * as Theme from '@/shared/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useLayoutEffect } from 'react';
 import { useNavigation, useRouter } from 'expo-router';
+import { useLayoutEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +19,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MD3LightTheme, PaperProvider } from 'react-native-paper';
+import { DatePickerInput, es, registerTranslation } from 'react-native-paper-dates';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+registerTranslation('es', es);
 
 export type ProductFormScreenProps = {
   mode: 'create' | 'edit';
@@ -47,6 +56,27 @@ export function ProductFormScreen({ mode, productId }: ProductFormScreenProps) {
   useLayoutEffect(() => {
     navigation.setOptions({ headerBackVisible: false });
   }, [navigation]);
+
+  const paperTheme = useMemo(
+    () => ({
+      ...MD3LightTheme,
+      colors: {
+        ...MD3LightTheme.colors,
+        primary: Theme.colors.primary,
+        onSurface: Theme.colors.textPrimary,
+        onSurfaceVariant: Theme.colors.textSecondary,
+        error: Theme.colors.danger,
+        surface: Theme.colors.surfaceElevated,
+        outline: Theme.colors.border,
+      },
+    }),
+    [],
+  );
+
+  const releaseDateValue = useMemo(
+    () => isoDateStringToLocalDate(vm.fields.date_release),
+    [vm.fields.date_release],
+  );
 
   const onSubmit = async () => {
     const ok = await vm.submit();
@@ -117,14 +147,15 @@ export function ProductFormScreen({ mode, productId }: ProductFormScreenProps) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.scroll}
-          accessibilityLabel={formA11y}>
+      <PaperProvider theme={paperTheme}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scroll}
+            accessibilityLabel={formA11y}>
           {vm.generalError ? (
             <Text style={styles.bannerError} accessibilityRole="alert">
               {vm.generalError}
@@ -183,29 +214,21 @@ export function ProductFormScreen({ mode, productId }: ProductFormScreenProps) {
           />
           <ErrorText message={vm.fieldErrors.logo} />
 
-          <FieldLabel>Fecha de liberación</FieldLabel>
-          <View style={[styles.dateFieldShell, err.date_release && styles.fieldShellError]}>
-            <TextInput
-              value={vm.fields.date_release}
-              onChangeText={(t) => vm.setField('date_release', t)}
-              placeholder={Platform.OS === 'web' ? undefined : 'AAAA-MM-DD'}
-              placeholderTextColor={Theme.colors.textMuted}
-              style={styles.dateFieldInput}
+          <View style={styles.datePickerRow}>
+            <FieldLabel>Fecha de liberación</FieldLabel>
+            <DatePickerInput
+              locale="es"
+              inputMode="start"
+              mode="outlined"
+              value={releaseDateValue}
+              onChange={(d) => vm.setField('date_release', localDateToIsoDateString(d))}
+              validRange={{ startDate: startOfTodayLocal() }}
+              hideValidationErrors
+              error={!!err.date_release}
               accessibilityLabel="Fecha de liberación"
-              {...(Platform.OS === 'web'
-                ? ({ type: 'date' } as object)
-                : {})}
             />
-            <Ionicons
-              name="calendar-outline"
-              size={22}
-              color={err.date_release ? Theme.colors.danger : Theme.colors.textMuted}
-              style={styles.dateFieldIcon}
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-            />
+            <ErrorText message={vm.fieldErrors.date_release} />
           </View>
-          <ErrorText message={vm.fieldErrors.date_release} />
 
           <FieldLabel>Fecha de revisión (calculada)</FieldLabel>
           <View
@@ -256,7 +279,8 @@ export function ProductFormScreen({ mode, productId }: ProductFormScreenProps) {
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </PaperProvider>
     </SafeAreaView>
   );
 }
@@ -300,6 +324,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.md,
     paddingBottom: Theme.spacing.xxl,
     gap: Theme.spacing.xs,
+  },
+  datePickerRow: {
+    alignSelf: 'stretch',
+    marginTop: Theme.spacing.sm,
   },
   bannerError: {
     ...Theme.typography.caption,
